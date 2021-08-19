@@ -1,11 +1,7 @@
 from unittest import TestCase
-
-import web3
-
 from ethereumpy.exception.basic_exceptions import *
 from sha3 import keccak_256
 from string import hexdigits
-import binascii
 from typing import Union
 
 
