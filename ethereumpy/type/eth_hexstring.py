@@ -6,6 +6,8 @@ from typing import Union
 
 class EthHexString:
     def __init__(self, value: Union[bytes, None]):
+        if not isinstance(value, bytes) and value is not None:
+            raise EthTypeError("Invalid input type")
         self.value = value
 
     @classmethod
