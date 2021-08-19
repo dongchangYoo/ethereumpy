@@ -5,13 +5,23 @@ from typing import Union
 
 class ChecksumAddress:
     def __init__(self, value: str = None):
-        if not isinstance(value, str) and value is not None:
+        # store empty address
+        if value is None or value == "":
+            self.value = None
+
+        # type check
+        if not isinstance(value, str):
             raise EthTypeError("expected type: str, but {}".format(type(value)))
-        # remove "0x"
-        if value is not None and value.startswith("0x"):
-            value = value[2:]
-        if len(value) != 40 and value is not None:
+
+        # length check (20 byte)
+        if len(value) != 40:
             raise EthValueError("expected byte-length: 20, but {}".format(len(value)//2))
+
+        # value must have prefix: "0x"
+        if not value.startswith("0x"):
+            value = "0x" + value
+
+        # store value in encoded checksum form
         self.value: Union[str, None] = ChecksumAddress.checksum_encode(value)[2:] if value is not None else None
 
     def __repr__(self):
@@ -29,10 +39,13 @@ class ChecksumAddress:
         return True if self.value.lower() == other.value.lower() else False
 
     def is_empty(self) -> bool:
-        return True if self.value is None or self.value == "" else False
+        return self.value is None
 
-    def to_raw_address(self):
+    def to_lower(self):
         return self.value.lower()
+
+    def to_upper(self):
+        return self.value.upper()
 
     @staticmethod
     def checksum_encode(addr: str):
@@ -58,5 +71,8 @@ class ChecksumAddress:
             else:
                 return True
 
+    @classmethod
+    def zero_address(cls):
+        return cls("0x0000000000000000000000000000000000000000")
 
 
