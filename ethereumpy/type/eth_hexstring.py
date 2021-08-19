@@ -4,7 +4,7 @@ from ethereumpy.exception.basic_exceptions import *
 from typing import Union
 
 
-class EthBytes:
+class EthHexString:
     def __init__(self, value: Union[bytes, None]):
         self.value = value
 
@@ -58,10 +58,10 @@ class EthBytes:
         return True if self.value is None or self.value == b'' else False
 
 
-class EthHash(EthBytes):
+class EthHashString(EthHexString):
     def __init__(self, value: bytes):
-        if len(value) != 20 and value is not None:
-            raise EthValueError("expected byte-length: {}, but {}".format(20, len(value)))
+        if len(value) != 32 and value is not None:
+            raise EthValueError("expected byte-length: {}, but {}".format(32, len(value)))
         super().__init__(value)
 
 
@@ -70,18 +70,18 @@ class BytesTest(TestCase):
         bytes_with_0x = "0x04008020c2e11875645373fd2ef8217dd51a1969b8711c863b030400000000000000000012eb8bf7f335e8bd6f5beb76c651574cf7c3ec72f7a0cf3dbe4ac27f425bb83a31791b610b18121738d16c2e"
         bytes_without_0x = "04008020c2e11875645373fd2ef8217dd51a1969b8711c863b030400000000000000000012eb8bf7f335e8bd6f5beb76c651574cf7c3ec72f7a0cf3dbe4ac27f425bb83a31791b610b18121738d16c2e"
 
-        custom_bytes = EthBytes.from_hex(bytes_with_0x)
+        custom_bytes = EthHexString.from_hex(bytes_with_0x)
         self.assertEqual(custom_bytes.to_string_with_0x(), bytes_with_0x)
 
-        custom_bytes = EthBytes.from_hex(bytes_without_0x)
+        custom_bytes = EthHexString.from_hex(bytes_without_0x)
         self.assertEqual(custom_bytes.to_string_with_0x(), bytes_with_0x)
 
     def test_hash_constructor(self):
         tx_hash_0x = "0x0890d66d6e8b577e73770abb14574db553a25fe09068831e5bc6756178697a4d"
         tx_hash = "0890d66d6e8b577e73770abb14574db553a25fe09068831e5bc6756178697a4d"
 
-        tx_hash_bytes = EthBytes.from_hex(tx_hash)
+        tx_hash_bytes = EthHashString.from_hex(tx_hash)
         self.assertEqual(tx_hash_bytes.to_string_with_0x(), tx_hash_0x)
 
-        tx_hash_bytes = EthBytes.from_hex(tx_hash_0x)
+        tx_hash_bytes = EthHashString.from_hex(tx_hash_0x)
         self.assertEqual(tx_hash_bytes.to_string_with_0x(), tx_hash_0x)
