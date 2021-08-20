@@ -41,7 +41,7 @@ class EthHexString:
             raise EthTypeError("EthHash type cannot be compared with type: {}".format(type(other)))
         if self.is_empty() and other.is_empty():
             return True
-        return self.value == other._value
+        return self.value == other.value
 
     def to_string_with_0x(self) -> str:
         if self.is_empty():
