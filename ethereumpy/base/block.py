@@ -194,7 +194,20 @@ class EthBlockTest(TestCase):
 
     def test_block_constructor(self):
         block = EthBlock.from_dict(self.block_dict)
-        print(block.to_dict())
-
-
-
+        self.assertEqual(self.block_dict["baseFeePerGas"], block.base_fee)
+        self.assertEqual(self.block_dict["difficulty"], block.difficulty)
+        self.assertEqual(self.block_dict["extraData"], block.extra_data)
+        self.assertEqual(self.block_dict["gasLimit"], block.gas_limit)
+        self.assertEqual(self.block_dict["gasUsed"], block.gas_used)
+        self.assertEqual(self.block_dict["hash"], block.hash)
+        self.assertEqual(self.block_dict["logsBloom"], block.logs_bloom)
+        self.assertEqual(self.block_dict["miner"], block.miner.lower())
+        self.assertEqual(self.block_dict["mixHash"], block.mix_hash)
+        self.assertEqual(self.block_dict["nonce"], block.nonce)
+        self.assertEqual(self.block_dict["number"], block.number)
+        self.assertEqual(self.block_dict["parentHash"], block.parent_hash)
+        self.assertEqual(self.block_dict["receiptsRoot"], block.receipts_hash)
+        self.assertEqual(self.block_dict["sha3Uncles"], block.uncles_hash)
+        self.assertEqual(self.block_dict["size"], block.size)
+        self.assertEqual(self.block_dict["totalDifficulty"], block.total_difficulty)
+        self.assertEqual(self.block_dict["transactionsRoot"], block.transaction_root)
