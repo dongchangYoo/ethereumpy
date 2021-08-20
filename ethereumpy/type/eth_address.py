@@ -1,5 +1,5 @@
 from unittest import TestCase
-from ethereumpy.exception.basic_exceptions import *
+from ethereumpy.exception.exceptions import *
 from sha3 import keccak_256
 from string import hexdigits
 from typing import Union

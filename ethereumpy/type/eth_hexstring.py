@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from ethereumpy.exception.basic_exceptions import *
+from ethereumpy.exception.exceptions import *
 from typing import Union
 
 
