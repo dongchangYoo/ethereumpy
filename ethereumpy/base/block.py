@@ -34,6 +34,7 @@ class EthBlock:
         self._transactions_root: EthHashString = transactions_root
         self._transactions: list = transactions
         self._uncles: list = uncles
+        self.verbose: bool = False if len(self._transactions) > 0 and isinstance(self._transactions[0], str) else True
 
     @classmethod
     def from_dict(cls, block_dict: dict):
@@ -56,7 +57,11 @@ class EthBlock:
         timestamp: int = int(block_dict["timestamp"], 16)
         total_difficulty: int = int(block_dict["totalDifficulty"], 16)
         transactions_root: EthHashString = EthHashString.from_hex(block_dict["transactionsRoot"])
-        transactions: list = [EthTransaction.from_dict(tx) for tx in block_dict["transactions"]]
+
+        # check verbose
+        raw_tx_list = block_dict["transactions"]
+        verbose: bool = True if isinstance(raw_tx_list[0], dict) else False
+        transactions: list = [EthTransaction.from_dict(tx) for tx in raw_tx_list] if verbose else raw_tx_list
         uncles: list = block_dict["uncles"]
 
         return cls(base_fee_per_gas, difficulty, extra_data, gas_limit, gas_used, _hash, logs_bloom, miner, mix_hash,
@@ -84,7 +89,7 @@ class EthBlock:
         ret_dict["timestamp"] = hex(self._timestamp)
         ret_dict["totalDifficulty"] = hex(self._total_difficulty)
         ret_dict["transactionsRoot"] = self._transactions_root.to_string_with_0x()
-        ret_dict["transactions"] = [tx.to_dict() for tx in self._transactions]
+        ret_dict["transactions"] = [tx.to_dict() for tx in self._transactions] if self.verbose else self._transactions
         ret_dict["uncles"] = self._uncles  # TODO change list of dict to object list
         return ret_dict
 
@@ -188,35 +193,49 @@ class EthBlock:
 
 class EthBlockTest(TestCase):
     def setUp(self) -> None:
-        with open("test_data/block_example.json", "r") as json_data:
+        with open("test_data/verbose_true_block.json", "r") as json_data:
+            self.verbose_block_dict = json.load(json_data)
+
+        with open("test_data/verbose_false_block.json", "r") as json_data:
             self.block_dict = json.load(json_data)
 
         # revise transaction input string when it is empty
-        for tx in self.block_dict["transactions"]:
+        for tx in self.verbose_block_dict["transactions"]:
             if tx["input"] == "0x":
                 tx["input"] = ""
 
     def test_block_constructor(self):
+        block = EthBlock.from_dict(self.verbose_block_dict)
+        self._block_members_check(self.verbose_block_dict, block)
+
+    def test_verbose_block_constructor(self):
         block = EthBlock.from_dict(self.block_dict)
-        self.assertEqual(self.block_dict["baseFeePerGas"], block.base_fee)
-        self.assertEqual(self.block_dict["difficulty"], block.difficulty)
-        self.assertEqual(self.block_dict["extraData"], block.extra_data)
-        self.assertEqual(self.block_dict["gasLimit"], block.gas_limit)
-        self.assertEqual(self.block_dict["gasUsed"], block.gas_used)
-        self.assertEqual(self.block_dict["hash"], block.hash)
-        self.assertEqual(self.block_dict["logsBloom"], block.logs_bloom)
-        self.assertEqual(self.block_dict["miner"], block.miner.lower())
-        self.assertEqual(self.block_dict["mixHash"], block.mix_hash)
-        self.assertEqual(self.block_dict["nonce"], block.nonce)
-        self.assertEqual(self.block_dict["number"], block.number)
-        self.assertEqual(self.block_dict["parentHash"], block.parent_hash)
-        self.assertEqual(self.block_dict["receiptsRoot"], block.receipts_hash)
-        self.assertEqual(self.block_dict["sha3Uncles"], block.uncles_hash)
-        self.assertEqual(self.block_dict["size"], block.size)
-        self.assertEqual(self.block_dict["totalDifficulty"], block.total_difficulty)
-        self.assertEqual(self.block_dict["transactionsRoot"], block.transaction_root)
-        self.assertEqual(self.block_dict["transactions"], [tx.to_dict() for tx in block.transactions])
+        self._block_members_check(self.block_dict, block)
 
     def test_exporter(self):
-        block = EthBlock.from_dict(self.block_dict)
-        self.assertEqual(self.block_dict, block.to_dict())
+        block = EthBlock.from_dict(self.verbose_block_dict)
+        self.assertEqual(self.verbose_block_dict, block.to_dict())
+
+    def _block_members_check(self, expected: dict, block: EthBlock):
+        self.assertEqual(expected["baseFeePerGas"], block.base_fee)
+        self.assertEqual(expected["difficulty"], block.difficulty)
+        self.assertEqual(expected["extraData"], block.extra_data)
+        self.assertEqual(expected["gasLimit"], block.gas_limit)
+        self.assertEqual(expected["gasUsed"], block.gas_used)
+        self.assertEqual(expected["hash"], block.hash)
+        self.assertEqual(expected["logsBloom"], block.logs_bloom)
+        self.assertEqual(expected["miner"], block.miner.lower())
+        self.assertEqual(expected["mixHash"], block.mix_hash)
+        self.assertEqual(expected["nonce"], block.nonce)
+        self.assertEqual(expected["number"], block.number)
+        self.assertEqual(expected["parentHash"], block.parent_hash)
+        self.assertEqual(expected["receiptsRoot"], block.receipts_hash)
+        self.assertEqual(expected["sha3Uncles"], block.uncles_hash)
+        self.assertEqual(expected["size"], block.size)
+        self.assertEqual(expected["totalDifficulty"], block.total_difficulty)
+        self.assertEqual(expected["transactionsRoot"], block.transaction_root)
+
+        if block.verbose:
+            self.assertEqual(expected["transactions"], [tx.to_dict() for tx in block.transactions])
+        else:
+            self.assertEqual(expected["transactions"], [tx for tx in block.transactions])
