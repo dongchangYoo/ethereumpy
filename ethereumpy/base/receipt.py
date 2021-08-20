@@ -35,7 +35,7 @@ class Log:
 
     def to_dict(self):
         ret_dict = dict()
-        ret_dict["address"] = self._emitter.to_string_with_0x()
+        ret_dict["address"] = self._emitter.to_string_with_0x().lower()
         ret_dict["blockHash"] =  self._block_hash.to_string_with_0x()
         ret_dict["blockNumber"] = hex(self._block_number)
         ret_dict["data"] = self._data.to_string_with_0x()
@@ -44,6 +44,7 @@ class Log:
         ret_dict["topics"] = [topic.to_string_with_0x() for topic in self._topics]
         ret_dict["transactionHash"] = self._transaction_hash.to_string_with_0x()
         ret_dict["transactionIndex"] = hex(self._transaction_index)
+        return ret_dict
 
     def serialize(self) -> bytes:
         pass  # TODO implementation
@@ -134,12 +135,12 @@ class EthReceipt:
         ret_dict["contractAddress"] = self._contract_addr.to_string_with_0x()
         ret_dict["cumulativeGasUsed"] = hex(self._cumulative_gas_used)
         ret_dict["effectiveGasPrice"] = hex(self._effective_gas_price)
-        ret_dict["from"] = self._from.to_string_with_0x()
+        ret_dict["from"] = self._from.to_string_with_0x().lower()
         ret_dict["gasUsed"] = hex(self._gas_used)
         ret_dict["logs"] = [log.to_dict() for log in self._logs]
         ret_dict["logsBloom"] = self._logs_bloom.to_string_with_0x()
         ret_dict["status"] = "0x1" if self._status else "0x0"
-        ret_dict["to"] = self._to.to_string_with_0x()
+        ret_dict["to"] = self._to.to_string_with_0x().lower()
         ret_dict["transactionHash"] = self._tx_hash.to_string_with_0x()
         ret_dict["transactionIndex"] = hex(self._tx_index)
         ret_dict["type"] = hex(self._type)
@@ -227,11 +228,13 @@ class ReceiptTest(TestCase):
         self.assertEqual(log_dict["transactionHash"], log_obj.transaction_hash)
         self.assertEqual(log_dict["transactionIndex"], log_obj.transaction_index)
 
-    def test_block_constructor(self):
+    def test_constructor(self):
         receipt_obj = EthReceipt.from_dict(self.receipt_dict)
         self.assertEqual(self.receipt_dict["blockHash"], receipt_obj.block_hash)
         self.assertEqual(self.receipt_dict["blockNumber"], receipt_obj.block_number)
-        # self.assertEqual(self.receipt_dict["contractAddress"], receipt_obj.contract_addr.lower())
+
+        actual_contract_addr = receipt_obj.contract_addr.lower() if receipt_obj.contract_addr else None
+        self.assertEqual(self.receipt_dict["contractAddress"], actual_contract_addr)
         self.assertEqual(self.receipt_dict["cumulativeGasUsed"], receipt_obj.cumulative_gas_used)
         self.assertEqual(self.receipt_dict["effectiveGasPrice"], receipt_obj.effective_gas_price)
         self.assertEqual(self.receipt_dict["from"], receipt_obj.sender.lower())
@@ -241,3 +244,7 @@ class ReceiptTest(TestCase):
         self.assertEqual(self.receipt_dict["transactionHash"], receipt_obj.transaction_hash)
         self.assertEqual(self.receipt_dict["transactionIndex"], receipt_obj.transaction_index)
         self.assertEqual(self.receipt_dict["type"], receipt_obj.transaction_type)
+
+    def test_exporter(self):
+        receipt_obj = EthReceipt.from_dict(self.receipt_dict)
+        self.assertEqual(self.receipt_dict, receipt_obj.to_dict())
