@@ -42,7 +42,7 @@ class EthBlock:
         extra_data: EthHexString = EthHexString.from_hex(block_dict["extraData"])
         gas_limit: int = int(block_dict["gasLimit"], 16)
         gas_used: int = int(block_dict["gasUsed"], 16)
-        hash_: EthHashString = EthHashString.from_hex(block_dict["hash"])
+        _hash: EthHashString = EthHashString.from_hex(block_dict["hash"])
         logs_bloom: EthHexString = EthHexString.from_hex(block_dict["logsBloom"])
         miner: ChecksumAddress = ChecksumAddress(block_dict["miner"])
         mix_hash: EthHashString = EthHashString.from_hex(block_dict["mixHash"])
@@ -59,7 +59,7 @@ class EthBlock:
         transactions: list = [EthTransaction.from_dict(tx) for tx in block_dict["transactions"]]
         uncles: list = block_dict["uncles"]
 
-        return cls(base_fee_per_gas, difficulty, extra_data, gas_limit, gas_used, hash_, logs_bloom, miner, mix_hash,
+        return cls(base_fee_per_gas, difficulty, extra_data, gas_limit, gas_used, _hash, logs_bloom, miner, mix_hash,
                    nonce, number, parent_hash, receipts_root, sha3_uncles, size, state_root, timestamp, total_difficulty,
                    transactions_root, transactions, uncles)
 
@@ -72,7 +72,7 @@ class EthBlock:
         ret_dict["gasUsed"] = hex(self._gas_used)
         ret_dict["hash"] = self._hash.to_string_with_0x()
         ret_dict["logsBloom"] = self._logs_bloom.to_string_with_0x()
-        ret_dict["miner"] = self._miner.to_string_with_0x()
+        ret_dict["miner"] = self._miner.to_string_with_0x().lower()
         ret_dict["mixHash"] = self._mix_hash.to_string_with_0x()
         ret_dict["nonce"] = hex(self._nonce)
         ret_dict["number"] = hex(self._number)
@@ -84,7 +84,6 @@ class EthBlock:
         ret_dict["timestamp"] = hex(self._timestamp)
         ret_dict["totalDifficulty"] = hex(self._total_difficulty)
         ret_dict["transactionsRoot"] = self._transactions_root.to_string_with_0x()
-
         ret_dict["transactions"] = [tx.to_dict() for tx in self._transactions]
         ret_dict["uncles"] = self._uncles  # TODO change list of dict to object list
         return ret_dict
@@ -173,7 +172,7 @@ class EthBlock:
         return self._transactions_root.to_string_with_0x()
 
     @property
-    def transaction(self) -> list:
+    def transactions(self) -> list:
         return self._transactions
 
     def get_transaction_by_index(self, index: int) -> EthTransaction:
@@ -191,6 +190,11 @@ class EthBlockTest(TestCase):
     def setUp(self) -> None:
         with open("test_data/block_example.json", "r") as json_data:
             self.block_dict = json.load(json_data)
+
+        # revise transaction input string when it is empty
+        for tx in self.block_dict["transactions"]:
+            if tx["input"] == "0x":
+                tx["input"] = ""
 
     def test_block_constructor(self):
         block = EthBlock.from_dict(self.block_dict)
@@ -211,3 +215,8 @@ class EthBlockTest(TestCase):
         self.assertEqual(self.block_dict["size"], block.size)
         self.assertEqual(self.block_dict["totalDifficulty"], block.total_difficulty)
         self.assertEqual(self.block_dict["transactionsRoot"], block.transaction_root)
+        self.assertEqual(self.block_dict["transactions"], [tx.to_dict() for tx in block.transactions])
+
+    def test_exporter(self):
+        block = EthBlock.from_dict(self.block_dict)
+        self.assertEqual(self.block_dict, block.to_dict())
