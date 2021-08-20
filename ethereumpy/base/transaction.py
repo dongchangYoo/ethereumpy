@@ -4,6 +4,37 @@ from unittest import TestCase
 import json
 
 
+class Access:
+    def __init__(self, address: ChecksumAddress, storage_keys: list):
+        self._address: ChecksumAddress = address
+        self._storage_keys: list = storage_keys
+
+    @classmethod
+    def from_dict(cls, access_dict: dict):
+        address: ChecksumAddress = ChecksumAddress(access_dict["address"])
+        storage_keys: list = [EthHashString.from_hex(storage_key) for storage_key in access_dict["storageKeys"]]
+        return cls(address, storage_keys)
+
+    def to_dict(self) -> dict:
+        ret_dict = dict()
+        ret_dict["address"] = self._address.to_string_with_0x()
+        ret_dict["storageKeys"] = [key.to_string_with_0x() for key in self._storage_keys]
+        return ret_dict
+
+    def serialize(self) -> bytes:
+        pass  # TODO implementation
+
+    @property
+    def address(self) -> str:
+        return self._address.to_string_with_0x()
+
+    @property
+    def storage_keys(self) -> list:
+        return self._storage_keys
+
+    def get_storage_key_by_index(self, index: int) -> str:
+        return self._storage_keys[index].to_string_with_0x()
+
 class EthTransaction:
     def __init__(self, block_hash: EthHashString, block_number: int, sender: ChecksumAddress, gas: int, gas_price: int,
                  transaction_hash: EthHashString, input_: EthHexString, nonce: int, r: int, s: int, to: ChecksumAddress,
