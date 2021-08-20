@@ -117,7 +117,7 @@ class EthTransaction:
         ret_dict["nonce"] = hex(self._nonce)
         ret_dict["r"] = hex(self._r)
         ret_dict["s"] = hex(self._s)
-        ret_dict["to"] = self._to.to_string_with_0x()
+        ret_dict["to"] = self._to.to_string_with_0x().lower()
         ret_dict["transactionIndex"] = hex(self._transaction_index)
         ret_dict["type"] = hex(self._type)
         ret_dict["v"] = hex(self._v)
@@ -209,21 +209,28 @@ class EthTransaction:
 class EthTransactionTest(TestCase):
     def setUp(self) -> None:
         with open("test_data/coinbase_example.json", "r") as json_data:
-            self.coinbase = json.load(json_data)
+            self.type0_tx = json.load(json_data)
 
         with open("test_data/transaction_example.json", "r") as json_data:
-            self.transaction = json.load(json_data)
+            self.type2_tx = json.load(json_data)
 
     def test_coinbase_constructor(self):
-        tx = EthTransaction.from_dict(self.coinbase)
-        self.type0_checker(self.coinbase, tx)
+        tx = EthTransaction.from_dict(self.type0_tx)
+        self._type0_checker(self.type0_tx, tx)
 
     def test_transaction_constructor(self):
-        tx = EthTransaction.from_dict(self.transaction)
-        self.type0_checker(self.transaction, tx)
-        self.type2_checker(self.transaction, tx)
+        tx = EthTransaction.from_dict(self.type2_tx)
+        self._type0_checker(self.type2_tx, tx)
+        self._type2_checker(self.type2_tx, tx)
 
-    def type0_checker(self, expected: dict, tx: EthTransaction):
+    def test_exporter(self):
+        type0_tx = EthTransaction.from_dict(self.type0_tx)
+        self.assertEqual(self.type0_tx, type0_tx.to_dict())
+
+        type2_tx = EthTransaction.from_dict(self.type2_tx)
+        self.assertEqual(self.type2_tx, type2_tx.to_dict())
+
+    def _type0_checker(self, expected: dict, tx: EthTransaction):
         self.assertEqual(expected["blockHash"], tx.block_hash)
         self.assertEqual(expected["blockNumber"], tx.block_number)
         self.assertEqual(expected["from"], tx.sender.lower())
@@ -239,7 +246,7 @@ class EthTransactionTest(TestCase):
         self.assertEqual(expected["type"], tx.transaction_type)
         self.assertEqual(expected["value"], tx.value)
 
-    def type2_checker(self, expected: dict, tx: EthTransaction):
+    def _type2_checker(self, expected: dict, tx: EthTransaction):
         for i, access in enumerate(tx.access_list):
             self.assertEqual(expected["accessList"][i], access.to_dict())
         self.assertEqual(expected["chainId"], tx.chain_id)
