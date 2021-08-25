@@ -1,10 +1,11 @@
-import web3
-
+from unittest import TestCase
+from ethereumpy.base.account import Account, PrivateKey
 from ethereumpy.base.receipt import EthReceipt
+from ethereumpy.base.sender_transaction import SenderTransaction
 from ethereumpy.type.eth_address import ChecksumAddress
 from ethereumpy.type.eth_hexstring import EthHexString, EthHashString
 from ethereumpy.base.block import EthBlock
-from ethereumpy.base.transaction import EthTransaction
+from ethereumpy.base.chain_transaction import ChainTransaction
 import time
 import requests
 from typing import Union
@@ -13,6 +14,9 @@ from typing import Union
 PROCESSED_SLEEP_TIME_SEC = 0.5
 NOT_PROCESSED_SLEEP_TIME_SEC = 3
 MAX_ITER_TIMES = 5
+
+CHAIN_ID_OFFSET = 35
+V_OFFSET = 27
 
 
 class RPCRequest:
@@ -68,7 +72,7 @@ class EthCaller(RPCRequest):
         resp = self.query(method, params)
         return EthBlock.from_dict(resp["result"])
 
-    def get_transaction(self, indicator: Union[EthHashString, list], verbose: bool = False) -> EthTransaction:
+    def get_transaction(self, indicator: Union[EthHashString, list], verbose: bool = False) -> ChainTransaction:
         if isinstance(indicator, EthHashString):
             method: str = "eth_getTransactionByHash"
             params: list = [indicator.to_string_with_0x(), verbose]
@@ -87,7 +91,7 @@ class EthCaller(RPCRequest):
             raise Exception("Invalid Parameter")
 
         resp = self.query(method, params)
-        return EthTransaction.from_dict(resp["result"])
+        return ChainTransaction.from_dict(resp["result"])
 
     def get_transaction_receipt(self, tx_hash: EthHashString, processed: bool = True) -> Union[EthReceipt, None]:
         sleep_time = PROCESSED_SLEEP_TIME_SEC if processed else NOT_PROCESSED_SLEEP_TIME_SEC
@@ -102,35 +106,32 @@ class EthCaller(RPCRequest):
 
 
 class ETHSender(EthCaller):
-    def __init__(self, url: str, secret: str):
+    def __init__(self, url: str, private_key: PrivateKey, chain_id: int = 1):
         super().__init__(url)
+        self.account = Account.from_key(private_key)
+        self.chain_id = chain_id
 
-        self.web3_lib = web3.Web3().eth
-        account = self.web3_lib.account.from_key(secret)
-        self.addr = ChecksumAddress(account.address)
-        self.key = account.privateKey
+    @classmethod
+    def from_private_key(cls, url: str, private_key: PrivateKey):
+        return cls(url, private_key)
 
-    def build_transaction(self, nonce: int, to: ChecksumAddress, value: int = None, data: EthHexString = None,
-                          gas_limit: int = None, gas_price: int = None) -> dict:
-        if not isinstance(to, ChecksumAddress):
-            raise Exception("Parameter type error.".format(type(to)))
+    @classmethod
+    def from_private_key_int(cls, url: str, secret: int):
+        private_key = PrivateKey.from_secret_int(secret)
+        return cls(url, private_key)
 
-        builder = TransactionBuilder().nonce(nonce)
-        if not to.is_empty():
-            builder.to(to)
-        if value is not None:
-            builder.value(value)
-        if gas_limit is not None:
-            builder.gas_limit(gas_limit)
-        if gas_price is not None:
-            builder.gas_limit(gas_limit)
-        if not data.is_empty():
-            builder.data(data)
-        return builder.extract_transaction()
+    def to_eth_v(self, v_raw) -> int:
+        return v_raw + V_OFFSET if self.chain_id is None else v_raw + CHAIN_ID_OFFSET + 2 * self.chain_id
 
-    def sign_transaction(self, transaction: dict) -> str:
-        signed_transaction = self.web3_lib.account.signTransaction(transaction, self.key)
-        return signed_transaction.rawTransaction.hex()
+    def sign_transaction(self, transaction: SenderTransaction) -> tuple:
+        if not isinstance(transaction, SenderTransaction):
+            raise Exception("invalid input type")
+
+        tx_hash: EthHashString = transaction.hash()
+        raw_v, r, s = self.account.recoverable_ecdsa_sign(tx_hash)
+        v = self.to_eth_v(raw_v)
+        transaction.set_sig(v, r, s)
+        return v, r, s, transaction.encode_transaction()
 
     def send_transaction(self, signed_tx: hex) -> str:
         resp = self.send_request("eth_sendRawTransaction", [signed_tx])
@@ -139,3 +140,32 @@ class ETHSender(EthCaller):
     def call_transaction(self, transaction: dict) -> str:
         resp = self.send_request("eth_call", [transaction])
         return resp["result"]
+
+
+class TestTransaction(TestCase):
+    def setUp(self) -> None:
+        self.cli = ETHSender("dummy_url", PrivateKey.from_secret_int(0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318), 1)
+        self.transaction = SenderTransaction.build(0, to="0xF0109fC8DF283027b6285cc889F5aA624EaC1F55",
+                                                   value=1000000000, gas_limit=2000000, gas_price=234567897654321)
+        self.expected_tx_hash = "0x6893a6ee8df79b0f5d64a180cd1ef35d030f3e296a5361cf04d02ce720d32ec5"
+
+    def test_sign_transaction(self):
+        tx_hash: EthHashString = self.transaction.hash()
+        self.assertEqual(self.expected_tx_hash, self.transaction.hash().to_string_with_0x())
+
+        v, r, s, encoded_tx = self.cli.sign_transaction(self.transaction)
+        self.assertEqual(37, v)
+        self.assertEqual(
+            4487286261793418179817841024889747115779324305375823110249149479905075174044,
+            r
+        )
+        self.assertEqual(
+            30785525769477805655994251009256770582792548537338581640010273753578382951464,
+            s
+        )
+        self.assertEqual(
+            "0xf86a8086d55698372431831e848094f0109fc8df283027b6285cc889f5aa624eac1f55843b9aca008025a009ebb6ca057a0535d6186462bc0b465b561c94a295bdb0621fc19208ab149a9ca0440ffd775ce91a833ab410777204d5341a6f9fa91216a6f3ee2c051fea6a0428",
+            encoded_tx.to_string_with_0x()
+        )
+
+

@@ -4,6 +4,11 @@ from unittest import TestCase
 from ethereumpy.base.crypto.hash import eth_hash
 from ethereumpy.base.crypto.secp256k1 import S256Field, S256Point
 from ethereumpy.type.eth_address import ChecksumAddress
+import hashlib
+import hmac
+from typing import (Any, Callable, Optional, Tuple)  # noqa: F401
+
+from ethereumpy.type.eth_hexstring import EthHashString, EthHexString
 
 
 class PrivateKey:
@@ -38,8 +43,8 @@ class PrivateKey:
         # 0 < rand < P
         return self._rng.randint(1, S256Field.P + 1)
 
-    def sign(self, msg_hash: bytes) -> tuple:
-        z: int = int.from_bytes(msg_hash, byteorder="big")
+    def sign(self, msg_hash: EthHashString) -> tuple:
+        z: int = int.from_bytes(msg_hash.to_bytes(), byteorder="big")
         g = S256Point.get_generator()
 
         while True:
@@ -53,12 +58,12 @@ class PrivateKey:
         s: int = k_inv * (z + r * self.__secret) % order
         return r, s
 
-    def recoverable_sign(self, msg_hash: bytes) -> tuple:
-        z: int = int.from_bytes(msg_hash, byteorder="big")
+    def recoverable_sign(self, msg_hash: EthHashString) -> tuple:
+        z: int = int.from_bytes(msg_hash.to_bytes(), byteorder="big")
         g = S256Point.get_generator()
 
         while True:
-            k: int = self.get_random()
+            k: int = self.deterministic_generate_k(msg_hash)
             R = (k * g)
             r = R.x.num
             if r != 0:
@@ -67,13 +72,23 @@ class PrivateKey:
         order = S256Point.get_order()
         k_inv = pow(k, order - 2, order)
         s: int = k_inv * (z + r * self.__secret) % order
-
-        if R.y.num % 2:
-            v = 0x1c
-        else:
-            v = 0x1b
-
+        v = 1 if R.y.num % 2 else 0
         return v, r, s
+
+    def deterministic_generate_k(self, msg_hash: EthHashString) -> int:
+        private_key_bytes = self.__secret.to_bytes(32, byteorder="big")
+        digest_fn = hashlib.sha256
+
+        v_0 = b'\x01' * 32
+        k_0 = b'\x00' * 32
+
+        k_1 = hmac.new(k_0, v_0 + b'\x00' + private_key_bytes + msg_hash.to_bytes(), digest_fn).digest()
+        v_1 = hmac.new(k_1, v_0, digest_fn).digest()
+        k_2 = hmac.new(k_1, v_1 + b'\x01' + private_key_bytes + msg_hash.to_bytes(), digest_fn).digest()
+        v_2 = hmac.new(k_2, v_1, digest_fn).digest()
+
+        kb = hmac.new(k_2, v_2, digest_fn).digest()
+        return int.from_bytes(kb, byteorder="big")
 
 
 class Account:
@@ -111,18 +126,14 @@ class Account:
             return self.__address
         return self.__private_key.address
 
-    def ecdsa_sign(self, pre: bytes) -> tuple:
-        msg_hash = eth_hash(pre)
+    def ecdsa_sign(self, msg_hash: EthHashString) -> tuple:
         return self.__private_key.sign(msg_hash)  # r, s
 
-    def recoverable_ecdsa_sign(self, pre: bytes) -> tuple:
-        msg_hash = eth_hash(pre)
+    def recoverable_ecdsa_sign(self, msg_hash: EthHashString) -> tuple:
         return self.__private_key.recoverable_sign(msg_hash)  # v, r, s
 
     @classmethod
-    def verify(cls, pre: bytes, r: int, s: int, pub_key: S256Point):
-        msg_hash = eth_hash(pre)
-
+    def verify(cls, msg_hash: EthHashString, r: int, s: int, pub_key: S256Point):
         # pubkey validation
         order = S256Point.get_order()
         criteria = order * pub_key
@@ -132,7 +143,7 @@ class Account:
         if r > order - 1 or s > order - 1:
             raise Exception("Invalid sig: r({}), s({})".format(r, s))
 
-        z = int.from_bytes(msg_hash, byteorder="big")
+        z = int.from_bytes(msg_hash.to_bytes(), byteorder="big")
         g = S256Point.get_generator()
 
         s_inv = pow(s, order - 2, order)
@@ -143,10 +154,7 @@ class Account:
         if result.is_infinity():
             return False
 
-        if result.x.num == r:
-            return True
-        else:
-            return False
+        return True if result.x.num == r else False
 
     @staticmethod
     def recover_verify(pre: bytes, v: int, r: int, s: int, signer_addr: ChecksumAddress):
@@ -164,7 +172,7 @@ class AccountTest(TestCase):
         self.assertEqual("0xd5e099c71b797516c10ed0f0d895f429c2781142", address.to_string_with_0x().lower())
 
     def test_ecdsa(self):
-        msg_bytes = "testtesttest".encode()
+        msg_bytes = EthHexString.from_bytes("testtesttest".encode())
         r, s = self.account.ecdsa_sign(msg_bytes)
         result = Account.verify(msg_bytes, r, s, self.account.pub_key)
         self.assertTrue(result)
