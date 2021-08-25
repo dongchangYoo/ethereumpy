@@ -73,6 +73,10 @@ class ECCPoint:
             coef >>= 1
         return result
 
+    def is_infinity(self):
+        if self.x is None and self.y is None:
+            return True
+        return False
 
 
 

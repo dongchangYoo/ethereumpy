@@ -1,30 +1,28 @@
-import sha3
-
 from ethereumpy.base.crypto.field_element import FieldElement
 from ethereumpy.base.crypto.ecc_point import ECCPoint
-from ethereumpy.base.crypto.hash import hash160, eth_hash
-import web3
-
-A = 0
-B = 7
-P = 2**256 - 2**32 - 977
-N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+from ethereumpy.base.crypto.hash import eth_hash
 
 
 class S256Field(FieldElement):
+    P = 2**256 - 2**32 - 977
+
     def __init__(self, num, prime=None):
-        super().__init__(num=num, prime=P)
+        super().__init__(num=num, prime=self.P)
 
     def __repr__(self):
         return '{:x}'.format(self.num).zfill(64)
 
     def sqrt(self):
-        return self**((P + 1) // 4)
+        return self**((self.P + 1) // 4)
 
 
-class EthPoint(ECCPoint):
+class S256Point(ECCPoint):
+    A = 0
+    B = 7
+    N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+
     def __init__(self, x, y, a=None, b=None):
-        a, b = S256Field(A), S256Field(B)
+        a, b = S256Field(self.A), S256Field(self.B)
         if type(x) == int:
             super().__init__(x=S256Field(x), y=S256Field(y), a=a, b=b)
         else:
@@ -37,12 +35,12 @@ class EthPoint(ECCPoint):
             return 'S256Point({}, {})'.format(self.x, self.y)
 
     def __rmul__(self, coefficient):
-        coef = coefficient % N
+        coef = coefficient % self.N
         return super().__rmul__(coef)
 
     @classmethod
     def from_pubkey_sec(cls, sec_bytes: bytes):
-        '''returns a Point object from a SEC binary (not hex)'''
+        """ returns a Point object from a SEC binary (not hex) """
         if not (len(sec_bytes) == 65 or len(sec_bytes) == 33):
             raise Exception("Invalid input len")
 
@@ -58,16 +56,16 @@ class EthPoint(ECCPoint):
         if prefix == 4:
             x = int.from_bytes(body[:32], 'big')
             y = int.from_bytes(sec_bytes[32:64], 'big')
-            return EthPoint(x=x, y=y)
+            return S256Point(x=x, y=y)
 
         x = S256Field(int.from_bytes(body, 'big'))
-        alpha = x**3 + S256Field(B)
+        alpha = x**3 + S256Field(cls.B)
         beta = alpha.sqrt()
         if beta.num % 2 == 0:
             even_beta = beta
-            odd_beta = S256Field(P - beta.num)
+            odd_beta = S256Field(S256Field.P - beta.num)
         else:
-            even_beta = S256Field(P - beta.num)
+            even_beta = S256Field(S256Field.P - beta.num)
             odd_beta = beta
         if prefix == 2:
             return cls(x, even_beta)
@@ -93,14 +91,19 @@ class EthPoint(ECCPoint):
         # note: pre-image must not include prefix of sec encoding
         return eth_hash(sec_bytes[1:])[-20:].hex()
 
+    @classmethod
+    def get_generator(cls):
+        return cls(
+            x=0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
+            y=0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8)
 
-G = EthPoint(
-    0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
-    0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8)
+    @classmethod
+    def get_order(cls):
+        return cls.N
 
 
 if __name__ == "__main__":
     secret = 0xf4a2b939592564feb35ab10a8e04f6f2fe0943579fb3c9c33505298978b74893
-    pubkey = secret * G
-    address1 = pubkey.address()
+    pubkey = secret * S256Point.get_generator()
+    address1 = pubkey.address
 
