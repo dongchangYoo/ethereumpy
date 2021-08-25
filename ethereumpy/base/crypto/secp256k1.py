@@ -1,6 +1,7 @@
 from ethereumpy.base.crypto.field_element import FieldElement
 from ethereumpy.base.crypto.ecc_point import ECCPoint
 from ethereumpy.base.crypto.hash import eth_hash
+from ethereumpy.type.eth_hexstring import EthHexString
 
 
 class S256Field(FieldElement):
@@ -85,11 +86,12 @@ class S256Point(ECCPoint):
     @property
     def address(self) -> str:
         """ Returns the address string """
-        # need to set compress flag False
-        sec_bytes = self.pubkey_sec(False)
+        # note 1: need to set compress flag False
+        # note 2: pre-image must not include prefix of sec encoding
+        sec_bytes = EthHexString.from_bytes(self.pubkey_sec(False)[1:])
+        pub_key_hash: bytes = eth_hash(sec_bytes).to_bytes()
 
-        # note: pre-image must not include prefix of sec encoding
-        return eth_hash(sec_bytes[1:])[-20:].hex()
+        return pub_key_hash[-20:].hex()
 
     @classmethod
     def get_generator(cls):
