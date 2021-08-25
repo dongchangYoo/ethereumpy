@@ -1,4 +1,4 @@
-from ethereumpy.base.transaction import EthTransaction
+from ethereumpy.base.chain_transaction import ChainTransaction
 from ethereumpy.type.eth_hexstring import EthHexString, EthHashString
 from ethereumpy.type.eth_address import ChecksumAddress
 from unittest import TestCase
@@ -34,7 +34,13 @@ class EthBlock:
         self._transactions_root: EthHashString = transactions_root
         self._transactions: list = transactions
         self._uncles: list = uncles
-        self.verbose: bool = False if len(self._transactions) > 0 and isinstance(self._transactions[0], str) else True
+
+        if len(self._transactions) == 0 or isinstance(self._transactions[0], str):
+            self.verbose = False
+        elif isinstance(self._transactions[0], ChainTransaction):
+            self.verbose = True
+        else:
+            raise Exception("Unknown Error")
 
     @classmethod
     def from_dict(cls, block_dict: dict):
@@ -61,7 +67,7 @@ class EthBlock:
         # check verbose
         raw_tx_list = block_dict["transactions"]
         verbose: bool = True if isinstance(raw_tx_list[0], dict) else False
-        transactions: list = [EthTransaction.from_dict(tx) for tx in raw_tx_list] if verbose else raw_tx_list
+        transactions: list = [ChainTransaction.from_dict(tx) for tx in raw_tx_list] if verbose else raw_tx_list
         uncles: list = block_dict["uncles"]
 
         return cls(base_fee_per_gas, difficulty, extra_data, gas_limit, gas_used, _hash, logs_bloom, miner, mix_hash,
@@ -128,6 +134,7 @@ class EthBlock:
     @property
     def logs_bloom(self) -> str:
         return self._logs_bloom.to_string_with_0x()
+
     @property
     def miner(self) -> str:
         return self._miner.to_string_with_0x()
@@ -180,7 +187,7 @@ class EthBlock:
     def transactions(self) -> list:
         return self._transactions
 
-    def get_transaction_by_index(self, index: int) -> EthTransaction:
+    def get_transaction_by_index(self, index: int) -> ChainTransaction:
         return self._transactions[index]
 
     @property

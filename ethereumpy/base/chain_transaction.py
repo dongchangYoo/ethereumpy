@@ -39,7 +39,7 @@ class Access:
         return self._storage_keys[index].to_string_with_0x()
 
 
-class WrittenTransaction:
+class ChainTransaction:
     def __init__(self, access_list: list, block_hash: EthHashString, block_number: int, chain_id: int, sender: ChecksumAddress, gas: int, gas_price: int,
                  transaction_hash: EthHashString, _input: EthHexString, max_fee_per_gas: int, max_priority_fee_per_gas: int, nonce: int, r: int, s: int, to: ChecksumAddress,
                  transaction_index: int, type_: int, v: int, value: int):
@@ -215,22 +215,22 @@ class EthTransactionTest(TestCase):
             self.type2_tx = json.load(json_data)
 
     def test_coinbase_constructor(self):
-        tx = WrittenTransaction.from_dict(self.type0_tx)
+        tx = ChainTransaction.from_dict(self.type0_tx)
         self._type0_checker(self.type0_tx, tx)
 
     def test_transaction_constructor(self):
-        tx = WrittenTransaction.from_dict(self.type2_tx)
+        tx = ChainTransaction.from_dict(self.type2_tx)
         self._type0_checker(self.type2_tx, tx)
         self._type2_checker(self.type2_tx, tx)
 
     def test_exporter(self):
-        type0_tx = WrittenTransaction.from_dict(self.type0_tx)
+        type0_tx = ChainTransaction.from_dict(self.type0_tx)
         self.assertEqual(self.type0_tx, type0_tx.to_dict())
 
-        type2_tx = WrittenTransaction.from_dict(self.type2_tx)
+        type2_tx = ChainTransaction.from_dict(self.type2_tx)
         self.assertEqual(self.type2_tx, type2_tx.to_dict())
 
-    def _type0_checker(self, expected: dict, tx: WrittenTransaction):
+    def _type0_checker(self, expected: dict, tx: ChainTransaction):
         self.assertEqual(expected["blockHash"], tx.block_hash)
         self.assertEqual(expected["blockNumber"], tx.block_number)
         self.assertEqual(expected["from"], tx.sender.lower())
@@ -246,7 +246,7 @@ class EthTransactionTest(TestCase):
         self.assertEqual(expected["type"], tx.transaction_type)
         self.assertEqual(expected["value"], tx.value)
 
-    def _type2_checker(self, expected: dict, tx: WrittenTransaction):
+    def _type2_checker(self, expected: dict, tx: ChainTransaction):
         for i, access in enumerate(tx.access_list):
             self.assertEqual(expected["accessList"][i], access.to_dict())
         self.assertEqual(expected["chainId"], tx.chain_id)
