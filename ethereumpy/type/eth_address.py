@@ -6,11 +6,10 @@ from typing import Union
 
 
 class ChecksumAddress:
-    def __init__(self, value: str = None):
-
+    def __init__(self, value: Union[str, None] = None):
         # store empty address
         if value is None or value == "":
-            self.value = None
+            self.value = ""
         else:
             # type check
             if not isinstance(value, str):
@@ -42,19 +41,22 @@ class ChecksumAddress:
         return True if self.value.lower() == other.value.lower() else False
 
     def is_empty(self) -> bool:
-        return self.value is None
+        return self.value == ""
 
-    def to_lower(self):
+    def lower(self) -> str:
         return self.value.lower()
 
-    def to_upper(self):
+    def upper(self) -> str:
         return self.value.upper()
 
-    def to_string_with_0x(self):
+    def to_string_with_0x(self) -> str:
         return self.value
 
-    def to_string_without_0x(self):
+    def to_string_without_0x(self) -> str:
         return self.value[2:] if not self.is_empty() else self.value
+
+    def to_bytes(self) -> bytes:
+        return bytes.fromhex(self.value[2:]) if not self.is_empty() else b""
 
     @staticmethod
     def is_hex(value: str):
@@ -103,4 +105,4 @@ class AddressTest(TestCase):
         self.assertEqual(self.addr, addr.to_string_with_0x())
 
         addr = ChecksumAddress()
-        self.assertEqual(None, addr.to_string_with_0x())
+        self.assertEqual("", addr.to_string_with_0x())

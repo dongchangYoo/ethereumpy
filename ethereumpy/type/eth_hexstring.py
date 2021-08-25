@@ -8,13 +8,13 @@ class EthHexString:
     def __init__(self, value: Union[bytes, None]):
         if not isinstance(value, bytes) and value is not None:
             raise EthTypeError("Invalid input type")
-        self.value = value
+        self.value = value if value is not None else b""
 
     @classmethod
-    def from_hex(cls, value: str):
+    def from_hex(cls, value: Union[str, None]):
         # define empty hash
         if value is None or value == "":
-            return cls(None)
+            return cls(b"")
 
         # type check
         if not isinstance(value, str):
@@ -25,6 +25,10 @@ class EthHexString:
             value = value[2:]
 
         return cls(bytes.fromhex(value))
+
+    @classmethod
+    def from_bytes(cls, value: Union[bytes, None]):
+        return cls(value)
 
     def __repr__(self) -> str:
         if self.is_empty():
@@ -57,14 +61,30 @@ class EthHexString:
         return self.value
 
     def is_empty(self):
-        return True if self.value is None or self.value == b'' else False
+        return True if self.value == b"" else False
 
 
 class EthHashString(EthHexString):
-    def __init__(self, value: bytes):
-        if len(value) != 32 and value is not None:
+    def __init__(self, value: Union[bytes, None]):
+        if isinstance(value, bytes) and len(value) != 32:
             raise EthValueError("expected byte-length: {}, but {}".format(32, len(value)))
         super().__init__(value)
+
+    @classmethod
+    def from_hex(cls, value: Union[str, None]):
+        # define empty hash
+        if value is None or value == "":
+            return cls(b"")
+
+        # type check
+        if not isinstance(value, str):
+            raise EthTypeError("expected type: str, but {}".format(type(value)))
+
+        # value must have prefix: "0x"
+        if value.startswith("0x"):
+            value = value[2:]
+
+        return cls(bytes.fromhex(value))
 
 
 class BytesTest(TestCase):

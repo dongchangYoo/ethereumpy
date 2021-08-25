@@ -39,7 +39,7 @@ class Access:
         return self._storage_keys[index].to_string_with_0x()
 
 
-class EthTransaction:
+class WrittenTransaction:
     def __init__(self, access_list: list, block_hash: EthHashString, block_number: int, chain_id: int, sender: ChecksumAddress, gas: int, gas_price: int,
                  transaction_hash: EthHashString, _input: EthHexString, max_fee_per_gas: int, max_priority_fee_per_gas: int, nonce: int, r: int, s: int, to: ChecksumAddress,
                  transaction_index: int, type_: int, v: int, value: int):
@@ -52,7 +52,7 @@ class EthTransaction:
         self._access_list: list = access_list
         self._block_hash: EthHashString = block_hash
         self._block_number: int = block_number
-        self._chainId: int = chain_id
+        self._chain_id: int = chain_id
         self._from: ChecksumAddress = sender
         self._gas: int = gas
         self._gas_price: int = gas_price
@@ -125,7 +125,7 @@ class EthTransaction:
         if self._type == 2:
             # In case of type 2 only
             ret_dict["accessList"] = [access.to_dict() for access in self._access_list]
-            ret_dict["chainId"] = hex(self._chainId)
+            ret_dict["chainId"] = hex(self._chain_id)
             ret_dict["maxFeePerGas"] = hex(self._max_fee_per_gas)
             ret_dict["maxPriorityFeePerGas"] = hex(self._max_priority_fee_per_gas)
         return ret_dict
@@ -149,7 +149,7 @@ class EthTransaction:
     @property
     def chain_id(self) -> str:
         # it return None when transaction type == 0
-        return hex(self._chainId) if self._chainId is not None else None
+        return hex(self._chain_id) if self._chain_id is not None else None
 
     @property
     def sender(self) -> str:
@@ -174,12 +174,12 @@ class EthTransaction:
     @property
     def max_fee_per_gas(self) -> str:
         # it return None when transaction type == 0
-        return hex(self._max_fee_per_gas) if self._chainId is not None else None
+        return hex(self._max_fee_per_gas) if self._chain_id is not None else None
 
     @property
     def max_priority_fee_per_gas(self) -> str:
         # it return None when transaction type == 0
-        return hex(self._max_priority_fee_per_gas) if self._chainId is not None else None
+        return hex(self._max_priority_fee_per_gas) if self._chain_id is not None else None
 
     @property
     def nonce(self) -> str:
@@ -215,22 +215,22 @@ class EthTransactionTest(TestCase):
             self.type2_tx = json.load(json_data)
 
     def test_coinbase_constructor(self):
-        tx = EthTransaction.from_dict(self.type0_tx)
+        tx = WrittenTransaction.from_dict(self.type0_tx)
         self._type0_checker(self.type0_tx, tx)
 
     def test_transaction_constructor(self):
-        tx = EthTransaction.from_dict(self.type2_tx)
+        tx = WrittenTransaction.from_dict(self.type2_tx)
         self._type0_checker(self.type2_tx, tx)
         self._type2_checker(self.type2_tx, tx)
 
     def test_exporter(self):
-        type0_tx = EthTransaction.from_dict(self.type0_tx)
+        type0_tx = WrittenTransaction.from_dict(self.type0_tx)
         self.assertEqual(self.type0_tx, type0_tx.to_dict())
 
-        type2_tx = EthTransaction.from_dict(self.type2_tx)
+        type2_tx = WrittenTransaction.from_dict(self.type2_tx)
         self.assertEqual(self.type2_tx, type2_tx.to_dict())
 
-    def _type0_checker(self, expected: dict, tx: EthTransaction):
+    def _type0_checker(self, expected: dict, tx: WrittenTransaction):
         self.assertEqual(expected["blockHash"], tx.block_hash)
         self.assertEqual(expected["blockNumber"], tx.block_number)
         self.assertEqual(expected["from"], tx.sender.lower())
@@ -246,7 +246,7 @@ class EthTransactionTest(TestCase):
         self.assertEqual(expected["type"], tx.transaction_type)
         self.assertEqual(expected["value"], tx.value)
 
-    def _type2_checker(self, expected: dict, tx: EthTransaction):
+    def _type2_checker(self, expected: dict, tx: WrittenTransaction):
         for i, access in enumerate(tx.access_list):
             self.assertEqual(expected["accessList"][i], access.to_dict())
         self.assertEqual(expected["chainId"], tx.chain_id)
