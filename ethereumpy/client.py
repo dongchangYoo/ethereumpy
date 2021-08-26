@@ -36,7 +36,7 @@ class RPCRequest:
         return response.json()
 
 
-class EthCaller(RPCRequest):
+class EthRpcClient(RPCRequest):
     def __init__(self, url_with_access_key: str):
         super().__init__(url_with_access_key)
 
@@ -105,7 +105,7 @@ class EthCaller(RPCRequest):
         return None
 
 
-class ETHSender(EthCaller):
+class ETHSender(EthRpcClient):
     def __init__(self, url: str, private_key: PrivateKey, chain_id: int = 1):
         super().__init__(url)
         self.account = Account.from_key(private_key)
@@ -131,7 +131,7 @@ class ETHSender(EthCaller):
         raw_v, r, s = self.account.recoverable_ecdsa_sign(tx_hash)
         v = self.to_eth_v(raw_v)
         transaction.set_sig(v, r, s)
-        return v, r, s, transaction.encode_transaction()
+        return v, r, s, transaction.serialize()
 
     def send_transaction(self, signed_tx: hex) -> str:
         resp = self.send_request("eth_sendRawTransaction", [signed_tx])
