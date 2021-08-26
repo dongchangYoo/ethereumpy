@@ -5,7 +5,7 @@ from typing import Union
 
 
 class EthHexString:
-    def __init__(self, value: Union[bytes, None]):
+    def __init__(self, value: Union[bytes, None] = None):
         if not isinstance(value, bytes) and value is not None:
             raise EthTypeError("Invalid input type")
         self.value = value if value is not None else b""
@@ -65,7 +65,7 @@ class EthHexString:
 
 
 class EthHashString(EthHexString):
-    def __init__(self, value: Union[bytes, None]):
+    def __init__(self, value: Union[bytes, None] = None):
         if isinstance(value, bytes) and len(value) != 32:
             raise EthValueError("expected byte-length: {}, but {}".format(32, len(value)))
         super().__init__(value)

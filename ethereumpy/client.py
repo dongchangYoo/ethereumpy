@@ -40,20 +40,24 @@ class EthRpcClient(RPCRequest):
     def __init__(self, url_with_access_key: str):
         super().__init__(url_with_access_key)
 
-    def query(self, method_name: str, params: list) -> dict:
-        return self.send_request(method_name, params)
+    # def query(self, method_name: str, params: list) -> dict:
+    #     return self.send_request(method_name, params)
+
+    def get_chain_id(self) -> int:
+        resp = self.send_request("net_version", [])
+        return int(resp["result"], 16)
 
     def get_nonce(self, addr: ChecksumAddress) -> int:
-        resp = self.query("eth_getTransactionCount", [addr.to_string_with_0x(), "latest"])
+        resp = self.send_request("eth_getTransactionCount", [addr.to_string_with_0x(), "latest"])
         return int(resp["result"], 16)
 
     def get_balance(self, addr_obj: ChecksumAddress) -> int:
         addr = addr_obj.to_string_with_0x()
-        resp = self.query("eth_getBalance", [addr, "latest"])
+        resp = self.send_request("eth_getBalance", [addr, "latest"])
         return int(resp["result"], 16)
 
     def get_latest_block_number(self) -> int:
-        resp = self.query("eth_blockNumber", list())
+        resp = self.send_request("eth_blockNumber", list())
         return int(resp["result"], 16)
 
     def get_block(self, indicator: Union[EthHashString, int] = None, verbose: bool = False) -> EthBlock:
@@ -69,7 +73,7 @@ class EthRpcClient(RPCRequest):
             params: list = [indicator.to_string_with_0x(), verbose]
         else:
             raise Exception("Not allowed input format")
-        resp = self.query(method, params)
+        resp = self.send_request(method, params)
         return EthBlock.from_dict(resp["result"])
 
     def get_transaction(self, indicator: Union[EthHashString, list], verbose: bool = False) -> ChainTransaction:
@@ -90,7 +94,7 @@ class EthRpcClient(RPCRequest):
         else:
             raise Exception("Invalid Parameter")
 
-        resp = self.query(method, params)
+        resp = self.send_request(method, params)
         return ChainTransaction.from_dict(resp["result"])
 
     def get_transaction_receipt(self, tx_hash: EthHashString, processed: bool = True) -> Union[EthReceipt, None]:
@@ -106,10 +110,10 @@ class EthRpcClient(RPCRequest):
 
 
 class ETHSender(EthRpcClient):
-    def __init__(self, url: str, private_key: PrivateKey, chain_id: int = 1):
+    def __init__(self, url: str, private_key: PrivateKey):
         super().__init__(url)
         self.account = Account.from_key(private_key)
-        self.chain_id = chain_id
+        self.__chain_id = self.get_chain_id()
 
     @classmethod
     def from_private_key(cls, url: str, private_key: PrivateKey):
@@ -133,39 +137,51 @@ class ETHSender(EthRpcClient):
         transaction.set_sig(v, r, s)
         return v, r, s, transaction.serialize()
 
-    def send_transaction(self, signed_tx: hex) -> str:
-        resp = self.send_request("eth_sendRawTransaction", [signed_tx])
+    # TODO testing!!
+    def send_transaction(self, signed_tx: EthHexString) -> str:
+        resp = self.send_request("eth_sendRawTransaction", [signed_tx.to_string_with_0x()])
         return resp["result"]
 
+    # TODO not implemented
     def call_transaction(self, transaction: dict) -> str:
         resp = self.send_request("eth_call", [transaction])
         return resp["result"]
 
+    @property
+    def chain_id(self):
+        return self.__chain_id
+
 
 class TestTransaction(TestCase):
     def setUp(self) -> None:
-        self.cli = ETHSender("dummy_url", PrivateKey.from_secret_int(0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318), 1)
-        self.transaction = SenderTransaction.build(0, to="0xF0109fC8DF283027b6285cc889F5aA624EaC1F55",
-                                                   value=1000000000, gas_limit=2000000, gas_price=234567897654321)
-        self.expected_tx_hash = "0x6893a6ee8df79b0f5d64a180cd1ef35d030f3e296a5361cf04d02ce720d32ec5"
+        private_key = PrivateKey.from_secret_int(0x3ae1050e80df0eb730e554287edcd038ccc950c83b26eed19f3b318078dcb41c)
+        self.cli = ETHSender("http://127.0.0.1:8545", private_key)
+        chain_id = self.cli.chain_id
+        self.transaction = SenderTransaction.set_metadata(0, to="0xF0109fC8DF283027b6285cc889F5aA624EaC1F55",
+                                                          value=1000000000, gas_limit=2000000, gas_price=234567897654321, chain_id=chain_id)
+
+    def test_serialize_transaction(self):
+        # check transaction hash
+        expected_tx_hash = "0xeee57600267b2d90650a79e6fb8f95e247288dfbd606f05e8b967798e7487a51"
+        self.assertEqual(expected_tx_hash, self.transaction.hash().to_string_with_0x())
 
     def test_sign_transaction(self):
-        tx_hash: EthHashString = self.transaction.hash()
-        self.assertEqual(self.expected_tx_hash, self.transaction.hash().to_string_with_0x())
-
         v, r, s, encoded_tx = self.cli.sign_transaction(self.transaction)
-        self.assertEqual(37, v)
+
+        chain_id = self.cli.chain_id
+        self.assertTrue(2 * chain_id == v or 1 + 2 * chain_id)
         self.assertEqual(
-            4487286261793418179817841024889747115779324305375823110249149479905075174044,
+            42193091172634067553896552780179880111632151928716446702506423493552247041490,
             r
         )
         self.assertEqual(
-            30785525769477805655994251009256770582792548537338581640010273753578382951464,
+            52476445989149348526628540910471646803993322977790296305050201031126519886925,
             s
         )
         self.assertEqual(
-            "0xf86a8086d55698372431831e848094f0109fc8df283027b6285cc889f5aa624eac1f55843b9aca008025a009ebb6ca057a0535d6186462bc0b465b561c94a295bdb0621fc19208ab149a9ca0440ffd775ce91a833ab410777204d5341a6f9fa91216a6f3ee2c051fea6a0428",
+            "0xf8718086d55698372431831e848094f0109fc8df283027b6285cc889f5aa624eac1f55843b9aca00808702c53286a4d0eba05d48717cf0c43bba625f749ce44e4dc64dd5a976d518e1d92891d63b0ec26dd2a074049daa4aac36d708a466ee1fc324f7af80fb4002d45299b11d216bdb2bb44d",
             encoded_tx.to_string_with_0x()
         )
 
-
+    def test_send_transaction(self):
+        self.transaction
