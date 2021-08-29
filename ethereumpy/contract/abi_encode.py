@@ -2,7 +2,6 @@ from typing import Union
 from ethereumpy.type.eth_address import ChecksumAddress
 
 
-
 def normalize_parameter(arg: Union[int, str, bytes, ChecksumAddress,  list]):
     if isinstance(arg, int):
         if arg < 0 or 2**256 < arg:
@@ -80,6 +79,6 @@ def calc_byte_len(target: str) -> int:
 #
 #     while True:
 #         print(result[:64])
-#         result = result[64:]
+#         result = result[64:]…
 #         if len(result) == 0:
 #             break
